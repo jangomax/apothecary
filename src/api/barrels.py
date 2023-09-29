@@ -2,6 +2,9 @@ from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 from src.api import auth
 
+import sqlalchemy
+from src import database as db
+
 router = APIRouter(
     prefix="/barrels",
     tags=["barrels"],
@@ -30,9 +33,14 @@ def get_wholesale_purchase_plan(wholesale_catalog: list[Barrel]):
     """ """
     print(wholesale_catalog)
 
+    with db.engine.begin() as connection:
+        result = connection.execute(sqlalchemy.text("SELECT num_red_ml FROM global_inventory"))
+    
+    print(str(result))
+
     return [
         {
             "sku": "SMALL_RED_BARREL",
-            "quantity": 1,
+            "quantity": 1 if result < 10000 else 0,
         }
     ]
