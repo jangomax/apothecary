@@ -20,29 +20,50 @@ class Barrel(BaseModel):
 
     quantity: int
 
+# We receive receipt of our purchase and have to put it in our own records
 @router.post("/deliver")
 def post_deliver_barrels(barrels_delivered: list[Barrel]):
     """ """
     print(barrels_delivered)
 
-    return "OK"
+    with db.engine.begin() as connection:
+        result = connection.execute(sqlalchemy.text("SELECT * FROM global_inventory"))
+        row = result.first()
+
+        price = barrels_delivered[0].price
+        qty = barrels_delivered[0].quantity
+        ml = barrels_delivered[0].ml_per_barrel
+
+        connection.execute(sqlalchemy.text(f"UPDATE global_inventory SET gold = {row.gold - (qty * price)}"))
+        connection.execute(sqlalchemy.text(f"UPDATE global_inventory SET num_red_ml = {row.num_red_ml + (qty * ml)}"))
+
+        return "OK"
 
 # Gets called once a day
+# This is where we place our order from the barrel wholesaler
 @router.post("/plan")
 def get_wholesale_purchase_plan(wholesale_catalog: list[Barrel]):
     """ """
     print(wholesale_catalog)
 
     with db.engine.begin() as connection:
-        result = connection.execute(sqlalchemy.text("SELECT * FROM global_inventory"))
-        row = result.first()
+        result = connection.execute(sqlalchemy.text("SELECT num_red_potions, gold FROM global_inventory"))
+        first_row = result.first()
 
-        if row.num_red_potions < 10:
-            connection.execute(sqlalchemy.text(f"UPDATE global_inventory SET gold = {row.gold - 100}"))
+        qty = 0
+
+        if (
+            first_row.num_red_potions < 10 and 
+            first_row.gold > wholesale_catalog[0].price and
+            wholesale_catalog[0].quantity > 0
+        ):
+            qty = 1
+
+        
 
         return [
             {
                 "sku": "SMALL_RED_BARREL",
-                "quantity": 1 if row.num_red_potions < 10 else 0
+                "quantity": qty
             }
         ]
