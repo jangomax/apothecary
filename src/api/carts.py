@@ -59,7 +59,7 @@ class CartCheckout(BaseModel):
 def checkout(cart_id: int, cart_checkout: CartCheckout):
     """ """
     with db.engine.begin() as connection:
-        result = connection.execute(sqlalchemy.text("SELECT * FROM global_inventory"))
+        result = connection.execute(sqlalchemy.text("SELECT num_red_ml, num_red_potions, gold FROM global_inventory"))
         row = result.first()
         cart = carts[cart_id]
         price = cart[1] * 50

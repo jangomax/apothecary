@@ -27,7 +27,7 @@ def post_deliver_barrels(barrels_delivered: list[Barrel]):
     print(barrels_delivered)
 
     with db.engine.begin() as connection:
-        result = connection.execute(sqlalchemy.text("SELECT * FROM global_inventory"))
+        result = connection.execute(sqlalchemy.text("SELECT gold, num_red_ml FROM global_inventory"))
         row = result.first()
 
         price = barrels_delivered[0].price
