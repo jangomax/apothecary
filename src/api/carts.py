@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Request, HTTPException
 from pydantic import BaseModel
 from src.api import auth
 
@@ -64,8 +64,10 @@ def checkout(cart_id: int, cart_checkout: CartCheckout):
         cart = carts[cart_id]
         price = cart[1] * 50
 
+        print(cart_checkout.payment)
+
         if cart[1] > row.num_red_potions or price > cart_checkout.payment:
-            return {"total_potions_bought": 0, "total_gold_paid": 0}
+            raise HTTPException(status_code=400, detail="Cart cannot be fulfilled.")
 
         connection.execute(sqlalchemy.text(f"UPDATE global_inventory SET gold = {row.gold - price}, num_red_potions = {row.num_red_potions - cart[1]}"))
         return {"total_potions_bought": cart[1], "total_gold_paid": int(cart_checkout.payment)}
