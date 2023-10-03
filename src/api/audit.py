@@ -3,6 +3,9 @@ from pydantic import BaseModel
 from src.api import auth
 import math
 
+import sqlalchemy
+from src import database as db
+
 router = APIRouter(
     prefix="/audit",
     tags=["audit"],
@@ -12,8 +15,15 @@ router = APIRouter(
 @router.get("/inventory")
 def get_inventory():
     """ """
+    with db.engine.begin() as connection:
+        result = connection.execute(sqlalchemy.text("SELECT gold, num_red_ml, num_red_potions FROM global_inventory"))
+        row = result.first()
     
-    return {"number_of_potions": 0, "ml_in_barrels": 0, "gold": 0}
+        return {
+            "number_of_potions": row.num_red_potions, 
+            "ml_in_barrels": row.num_red_ml,
+            "gold": row.gold
+        }
 
 class Result(BaseModel):
     gold_match: bool
