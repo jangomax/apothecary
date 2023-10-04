@@ -54,7 +54,7 @@ def get_wholesale_purchase_plan(wholesale_catalog: list[Barrel]):
 
         red_barrels = [item for item in wholesale_catalog if item.sku == "SMALL_RED_BARREL" and item.quantity > 0]
 
-        if first_row.num_red_potions < 10 and first_row.gold > wholesale_catalog[0].price:
+        if first_row.num_red_potions < 10 and first_row.gold >= red_barrels[0].price:
             qty = 1
         
         if qty == 0:
