@@ -11,7 +11,7 @@ router = APIRouter(
     dependencies=[Depends(auth.get_api_key)],
 )
 
-carts = {} # Dict of tuples (customer_name, qty)
+carts = {} # Dict of lists [customer_name, qty]
 
 class NewCart(BaseModel):
     customer: str
@@ -21,7 +21,7 @@ class NewCart(BaseModel):
 def create_cart(new_cart: NewCart):
     """ """
     id = hash(new_cart.customer)
-    carts[id] = (new_cart.customer, 0)
+    carts[id] = [new_cart.customer, 0]
     return {"cart_id": id}
 
 
@@ -66,11 +66,11 @@ def checkout(cart_id: int, cart_checkout: CartCheckout):
 
         print(cart_checkout.payment)
 
-        if cart[1] > row.num_red_potions or price > cart_checkout.payment:
+        if cart[1] > row.num_red_potions:
             raise HTTPException(status_code=400, detail="Cart cannot be fulfilled.")
 
         connection.execute(sqlalchemy.text(f"UPDATE global_inventory SET gold = {row.gold + price}, num_red_potions = {row.num_red_potions - cart[1]}"))
         return {
             "total_potions_bought": cart[1], 
-            "total_gold_paid": int(cart_checkout.payment)
+            "total_gold_paid": price
         }
