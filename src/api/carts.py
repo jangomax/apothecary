@@ -20,7 +20,7 @@ class NewCart(BaseModel):
 @router.post("/")
 def create_cart(new_cart: NewCart):
     """ """
-    id = hash(new_cart.customer)
+    id = abs(hash(new_cart.customer))
     carts[id] = [new_cart.customer, 0]
     return {"cart_id": id}
 
