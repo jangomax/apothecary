@@ -11,8 +11,6 @@ router = APIRouter(
     dependencies=[Depends(auth.get_api_key)],
 )
 
-carts = {} # Dict of lists [customer_name, qty]
-
 class NewCart(BaseModel):
     customer: str
 
@@ -20,22 +18,26 @@ class NewCart(BaseModel):
 @router.post("/")
 def create_cart(new_cart: NewCart):
     """ """
-    id = abs(hash(new_cart.customer))
-    carts[id] = [new_cart.customer, 0]
-    return {"cart_id": id}
+    with db.engine.begin() as connection:
+        result = connection.execute(sqlalchemy.text(f"INSERT INTO carts SET customer_name = {new_cart.customer}"))
+        id = result.first().id
+        return {"cart_id": id}
 
 
 @router.get("/{cart_id}")
 def get_cart(cart_id: int):
     """ """
 
-    cart = carts[cart_id]
-
-    return { 
-        "cart_id": cart_id,
-        "customer": cart[0],
-        "qty_red": cart[1]
-     }
+    with db.engine.begin() as connection:
+        result = connection.execute(sqlalchemy.text(f"SELECT customer_name, qty_red, qty_green, qty_blue FROM carts WHERE id = {cart_id}"))
+        row = result.first()
+        return { 
+            "cart_id": cart_id,
+            "customer": row.customer_name,
+            "qty_red": row.qty_red,
+            "qty_green": row.qty_green,
+            "qty_blue": row.qty_blue,
+        }
 
 
 class CartItem(BaseModel):
@@ -45,10 +47,16 @@ class CartItem(BaseModel):
 @router.post("/{cart_id}/items/{item_sku}")
 def set_item_quantity(cart_id: int, item_sku: str, cart_item: CartItem):
     """ """
-    if item_sku != "RED_POTION_0":
+    valid_sku = {
+        "RED_POTION_0": "qty_red", 
+        "GREEN_POTION_0": "qty_green", 
+        "BLUE_POTION_0": "qty_blue"
+    }
+    if not valid_sku.get(item_sku):
         return "OK"
 
-    carts[cart_id][1] = cart_item.quantity
+    with db.engine.begin() as connection:
+        connection.execute(sqlalchemy.text(f"UPDATE potions SET {valid_sku[item_sku]} = {cart_item.quantity}"))
     return "OK"
 
 
@@ -58,19 +66,29 @@ class CartCheckout(BaseModel):
 @router.post("/{cart_id}/checkout")
 def checkout(cart_id: int, cart_checkout: CartCheckout):
     """ """
+
+    p_type = {
+        "qty_red": "red",
+        "qty_green": "green",
+        "qty_blue": "blue",
+    }
+
     with db.engine.begin() as connection:
-        result = connection.execute(sqlalchemy.text("SELECT num_red_ml, num_red_potions, gold FROM global_inventory"))
-        row = result.first()
-        cart = carts[cart_id]
-        price = cart[1] * 50
 
-        print(cart_checkout.payment)
+        cart = connection.execute(sqlalchemy.text(f"SELECT qty_red, qty_green, qty_blue FROM carts WHERE id = {cart_id}")).first()
 
-        if cart[1] > row.num_red_potions:
-            raise HTTPException(status_code=400, detail="Cart cannot be fulfilled.")
+        total_price = 0
+        total_qty = 0
 
-        connection.execute(sqlalchemy.text(f"UPDATE global_inventory SET gold = {row.gold + price}, num_red_potions = {row.num_red_potions - cart[1]}"))
+        for item in cart.keys():
+            in_stock = connection.execute(sqlalchemy.text(f"SELECT num_potions FROM potions WHERE color = {p_type[item]}"))
+            if cart.item > in_stock:
+                raise HTTPException(status_code=400, detail="Cart cannot be fulfilled.")
+        for item in cart.keys():
+            connection.execute(sqlalchemy.text(f"UPDATE global_inventory SET gold = gold + {cart.item * 50}, num_potions = num_potions - {cart.item}"))
+            total_price += cart.item * 50
+            total_qty += cart.item
         return {
             "total_potions_bought": cart[1], 
-            "total_gold_paid": price
+            "total_gold_paid": total_price
         }

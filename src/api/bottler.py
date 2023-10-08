@@ -21,15 +21,16 @@ def post_deliver_bottles(potions_delivered: list[PotionInventory]):
     """ """
     print(potions_delivered)
 
+    p_type = ["red", "green", "blue"]
+
     with db.engine.begin() as connection:
-        ml = potions_delivered[0].quantity * 100
-        qty = potions_delivered[0].quantity
+        for item in potions_delivered:
+            ml = item.quantity * 100
+            qty = item.quantity
+            color = p_type[item.potion_type.index(100)]
 
-        result = connection.execute(sqlalchemy.text("SELECT num_red_ml, num_red_potions FROM global_inventory"))
-        row = result.first()
-
-        connection.execute(sqlalchemy.text(f"UPDATE global_inventory SET num_red_ml = {row.num_red_ml - ml}"))
-        connection.execute(sqlalchemy.text(f"UPDATE global_inventory SET num_red_potions = {row.num_red_potions + qty}"))
+            connection.execute(sqlalchemy.text(f"UPDATE potions SET num_ml = num_ml - {ml} WHERE color = {color}"))
+            connection.execute(sqlalchemy.text(f"UPDATE potions SET num_potions = num_potions + {qty} WHERE color = {color}"))
 
     return "OK"
 
@@ -47,16 +48,21 @@ def get_bottle_plan():
     # Initial logic: bottle all barrels into red potions.
 
     with db.engine.begin() as connection:
-        result = connection.execute(sqlalchemy.text("SELECT num_red_ml FROM global_inventory"))
-        first_row = result.first()
+        result = connection.execute(sqlalchemy.text("SELECT num_ml FROM potions"))
 
-        qty = first_row.num_red_ml // 100
+        p_type = {
+            "red": [100,0,0,0],
+            "green": [0,100,0,0],
+            "blue": [0,0,100,0],
+        }
 
-        if qty == 0:
-            return []
-        return [
-                {
-                    "potion_type": [100, 0, 0, 0],
+        bottle_order = []
+
+        for row in result:
+            qty = row.num_ml // 100
+            if qty > 0:
+                bottle_order.append({
+                    "potion_type": p_type[row.color],
                     "quantity": qty,
-                }
-            ]
+                })
+        return bottle_order
