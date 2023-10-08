@@ -26,13 +26,20 @@ def post_deliver_barrels(barrels_delivered: list[Barrel]):
     """ """
     print(barrels_delivered)
 
-    with db.engine.begin() as connection:
-        price = barrels_delivered[0].price
-        qty = barrels_delivered[0].quantity
-        ml = barrels_delivered[0].ml_per_barrel
+    sku_dict = {
+        "SMALL_RED_BARREL": "red",
+        "SMALL_GREEN_BARREL": "green",
+        "SMALL_BLUE_BARREL": "blue"
+    }
 
-        connection.execute(sqlalchemy.text(f"UPDATE global_inventory SET gold = gold - {qty * price}"))
-        connection.execute(sqlalchemy.text(f"UPDATE global_inventory SET num_red_ml = num_red_ml + {qty * ml}"))
+    with db.engine.begin() as connection:
+        for item in barrels_delivered:
+            price = item.price
+            qty = item.quantity
+            ml = item.ml_per_barrel
+
+            connection.execute(sqlalchemy.text(f"UPDATE global_inventory SET gold = gold - {qty * price}"))
+            connection.execute(sqlalchemy.text(f"UPDATE potions SET num_ml = num_ml + {qty * ml} WHERE color = '{sku_dict[item.sku]}'"))
 
         return "OK"
 
@@ -56,11 +63,11 @@ def get_wholesale_purchase_plan(wholesale_catalog: list[Barrel]):
         gold = connection.execute(sqlalchemy.text("SELECT gold FROM global_inventory")).first().gold
 
         for item in small_barrels:
-            result = connection.execute(sqlalchemy.text(f"SELECT num_potions FROM potions WHERE color = {sku_dict[item.name]}"))
-            num_potions = result.first()
+            result = connection.execute(sqlalchemy.text(f"SELECT num_potions FROM potions WHERE color = '{sku_dict[item.sku]}'"))
+            num_potions = result.first().num_potions
             if num_potions < 10 and item.price <= gold:
                 order_list.append({
-                    "sku": item.name,
+                    "sku": item.sku,
                     "quantity": 1
                 })
                 gold -= item.price
