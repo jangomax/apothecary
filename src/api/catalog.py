@@ -29,7 +29,7 @@ def get_catalog():
         for row in result:
             if row.num_potions > 0:
                 catalog.append({
-                    "sku": row.color + "_POTION_0",
+                    "sku": row.color.upper() + "_POTION_0",
                     "name": row.color + " potion",
                     "quantity": row.num_potions,
                     "price": 50,
