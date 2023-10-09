@@ -95,6 +95,7 @@ def checkout(cart_id: int, cart_checkout: CartCheckout):
 
         for item in cart.columns():
             in_stock = connection.execute(sqlalchemy.text(f"SELECT num_potions FROM potions WHERE color = '{p_type[item]}'"))
+            log(p_type[item], {"Requested": cart.item, "In Stock": in_stock})
             if cart.item > in_stock:
                 raise HTTPException(status_code=400, detail="Cart cannot be fulfilled.")
         for item in cart.keys():
