@@ -29,8 +29,8 @@ def post_deliver_bottles(potions_delivered: list[PotionInventory]):
             qty = item.quantity
             color = p_type[item.potion_type.index(100)]
 
-            connection.execute(sqlalchemy.text(f"UPDATE potions SET num_ml = num_ml - {ml} WHERE color = {color}"))
-            connection.execute(sqlalchemy.text(f"UPDATE potions SET num_potions = num_potions + {qty} WHERE color = {color}"))
+            connection.execute(sqlalchemy.text(f"UPDATE potions SET num_ml = num_ml - {ml} WHERE color = '{color}'"))
+            connection.execute(sqlalchemy.text(f"UPDATE potions SET num_potions = num_potions + {qty} WHERE color = '{color}'"))
 
     return "OK"
 
@@ -48,7 +48,7 @@ def get_bottle_plan():
     # Initial logic: bottle all barrels into red potions.
 
     with db.engine.begin() as connection:
-        result = connection.execute(sqlalchemy.text("SELECT num_ml FROM potions"))
+        result = connection.execute(sqlalchemy.text("SELECT num_ml, color FROM potions"))
 
         p_type = {
             "red": [100,0,0,0],
