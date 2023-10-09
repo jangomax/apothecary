@@ -5,6 +5,8 @@ from src.api import auth
 import sqlalchemy
 from src import database as db
 
+from src.discord import log
+
 router = APIRouter(
     prefix="/barrels",
     tags=["barrels"],
@@ -24,7 +26,7 @@ class Barrel(BaseModel):
 @router.post("/deliver")
 def post_deliver_barrels(barrels_delivered: list[Barrel]):
     """ """
-    print(barrels_delivered)
+    log("Barrels Delivered", barrels_delivered)
 
     sku_dict = {
         "SMALL_RED_BARREL": "red",
@@ -48,7 +50,7 @@ def post_deliver_barrels(barrels_delivered: list[Barrel]):
 @router.post("/plan")
 def get_wholesale_purchase_plan(wholesale_catalog: list[Barrel]):
     """ """
-    print(wholesale_catalog)
+    log("Wholesale Catalog", wholesale_catalog)
 
     with db.engine.begin() as connection:
 
@@ -71,5 +73,6 @@ def get_wholesale_purchase_plan(wholesale_catalog: list[Barrel]):
                     "quantity": 1
                 })
                 gold -= item.price
+        log("Plan", order_list)
 
         return order_list

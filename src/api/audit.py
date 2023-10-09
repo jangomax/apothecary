@@ -6,6 +6,8 @@ import math
 import sqlalchemy
 from src import database as db
 
+from src.discord import log
+
 router = APIRouter(
     prefix="/audit",
     tags=["audit"],
@@ -24,6 +26,11 @@ def get_inventory():
             total_potions += color.num_potions
             total_ml += color.num_ml
 
+        log("Audit", {
+            "number_of_potions": total_potions, 
+            "ml_in_barrels": total_ml,
+            "gold": gold 
+        })
     
         return {
             "number_of_potions": total_potions, 

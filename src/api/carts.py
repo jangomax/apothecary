@@ -5,6 +5,8 @@ from src.api import auth
 import sqlalchemy
 from src import database as db
 
+from src.discord import log
+
 router = APIRouter(
     prefix="/carts",
     tags=["cart"],
@@ -19,8 +21,12 @@ class NewCart(BaseModel):
 def create_cart(new_cart: NewCart):
     """ """
     with db.engine.begin() as connection:
-        result = connection.execute(sqlalchemy.text(f"INSERT INTO carts SET customer_name = {new_cart.customer}"))
-        id = result.first().id
+        result = connection.execute(sqlalchemy.text(f"INSERT INTO carts (customer_name) VALUES (:customer) RETURNING id"), {"customer": new_cart.customer})
+        id = result.scalar()
+        log("Created New Cart", {
+            "cart_id": id,
+            "customer_name": new_cart.customer
+        })
         return {"cart_id": id}
 
 
@@ -31,6 +37,13 @@ def get_cart(cart_id: int):
     with db.engine.begin() as connection:
         result = connection.execute(sqlalchemy.text(f"SELECT customer_name, qty_red, qty_green, qty_blue FROM carts WHERE id = {cart_id}"))
         row = result.first()
+        log("Get Cart", { 
+            "cart_id": cart_id,
+            "customer": row.customer_name,
+            "qty_red": row.qty_red,
+            "qty_green": row.qty_green,
+            "qty_blue": row.qty_blue,
+        })
         return { 
             "cart_id": cart_id,
             "customer": row.customer_name,
@@ -90,6 +103,6 @@ def checkout(cart_id: int, cart_checkout: CartCheckout):
             total_price += cart.item * 50
             total_qty += cart.item
         return {
-            "total_potions_bought": cart[1], 
+            "total_potions_bought": total_qty, 
             "total_gold_paid": total_price
         }

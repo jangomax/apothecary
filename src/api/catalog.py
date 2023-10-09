@@ -3,6 +3,8 @@ from fastapi import APIRouter
 import sqlalchemy
 from src import database as db
 
+from src.discord import log
+
 router = APIRouter()
 
 
@@ -33,5 +35,5 @@ def get_catalog():
                     "price": 50,
                     "potion_type": p_type[row.color]
                 })
-
+        log("Current Inventory", catalog)
         return catalog

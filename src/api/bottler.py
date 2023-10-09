@@ -6,6 +6,8 @@ from src.api import auth
 import sqlalchemy
 from src import database as db
 
+from src.discord import log
+
 router = APIRouter(
     prefix="/bottler",
     tags=["bottler"],
@@ -19,7 +21,7 @@ class PotionInventory(BaseModel):
 @router.post("/deliver")
 def post_deliver_bottles(potions_delivered: list[PotionInventory]):
     """ """
-    print(potions_delivered)
+    log("Potions Delivered", potions_delivered)
 
     p_type = ["red", "green", "blue"]
 
@@ -65,4 +67,5 @@ def get_bottle_plan():
                     "potion_type": p_type[row.color],
                     "quantity": qty,
                 })
+        log("Bottle Order", bottle_order)
         return bottle_order
