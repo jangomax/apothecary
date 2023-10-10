@@ -69,7 +69,7 @@ def set_item_quantity(cart_id: int, item_sku: str, cart_item: CartItem):
         return "OK"
 
     with db.engine.begin() as connection:
-        connection.execute(sqlalchemy.text(f"UPDATE potions SET {valid_sku[item_sku]} = {cart_item.quantity}"))
+        connection.execute(sqlalchemy.text(f"UPDATE carts SET {valid_sku[item_sku]} = {cart_item.quantity} WHERE id = {cart_id}"))
     return "OK"
 
 
@@ -97,6 +97,7 @@ def checkout(cart_id: int, cart_checkout: CartCheckout):
             in_stock = connection.execute(sqlalchemy.text(f"SELECT num_potions FROM potions WHERE color = '{p_type[item]}'"))
             log(p_type[item], {"Requested": cart.item, "In Stock": in_stock})
             if cart.item > in_stock:
+                log("", {"Error": "Transaction cancelled."})
                 raise HTTPException(status_code=400, detail="Cart cannot be fulfilled.")
         for item in cart.keys():
             connection.execute(sqlalchemy.text(f"UPDATE global_inventory SET gold = gold + {cart.item * 50}"))
