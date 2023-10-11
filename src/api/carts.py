@@ -105,9 +105,9 @@ def checkout(cart_id: int, cart_checkout: CartCheckout):
                 log("", {"Error": "Transaction cancelled."})
                 raise HTTPException(status_code=400, detail="Cart cannot be fulfilled.")
         for item in p_type.values():
-            connection.execute(sqlalchemy.text(f"UPDATE global_inventory SET gold = gold + {cart[item] * 50}"))
+            connection.execute(sqlalchemy.text(f"UPDATE global_inventory SET gold = gold + {cart[item] * (50 if item == 'blue' else 5)}"))
             connection.execute(sqlalchemy.text(f"UPDATE potions SET num_potions = num_potions - {cart[item]} WHERE color = '{item}'"))
-            total_price += cart[item] * 50
+            total_price += cart[item] * (50 if item == "blue" else 5)
             total_qty += cart[item]
         connection.execute(sqlalchemy.text(f"UPDATE carts SET payment = '{cart_checkout.payment}' WHERE id = {cart_id}"))
         log("Succesful Checkout!", {
