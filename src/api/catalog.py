@@ -32,7 +32,7 @@ def get_catalog():
                     "sku": row.color.upper() + "_POTION_0",
                     "name": row.color + " potion",
                     "quantity": row.num_potions,
-                    "price": (50 if row.color != "blue" else 5),
+                    "price": 50,
                     "potion_type": p_type[row.color]
                 })
         log("Current Inventory", catalog)

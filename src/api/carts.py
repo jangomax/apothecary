@@ -98,16 +98,19 @@ def checkout(cart_id: int, cart_checkout: CartCheckout):
         total_price = 0
         total_qty = 0
 
+        order = []
+
         for item in p_type.values():
             in_stock = connection.execute(sqlalchemy.text(f"SELECT num_potions FROM potions WHERE color = '{item}'")).scalar()
-            log(item, {"Requested": cart[item], "In Stock": in_stock})
+            order.append({f"Requested {item}": cart[item], "In Stock": in_stock})
             if cart[item] > in_stock:
-                log("", {"Error": "Transaction cancelled."})
+                log("Transaction cancelled.", order)
                 raise HTTPException(status_code=400, detail="Cart cannot be fulfilled.")
+        log("Order can be fulfilled", order)
         for item in p_type.values():
-            connection.execute(sqlalchemy.text(f"UPDATE global_inventory SET gold = gold + {cart[item] * (50 if item == 'blue' else 5)}"))
+            connection.execute(sqlalchemy.text(f"UPDATE global_inventory SET gold = gold + {cart[item] * 50}"))
             connection.execute(sqlalchemy.text(f"UPDATE potions SET num_potions = num_potions - {cart[item]} WHERE color = '{item}'"))
-            total_price += cart[item] * (50 if item == "blue" else 5)
+            total_price += cart[item] * 50
             total_qty += cart[item]
         connection.execute(sqlalchemy.text(f"UPDATE carts SET payment = '{cart_checkout.payment}' WHERE id = {cart_id}"))
         log("Succesful Checkout!", {
