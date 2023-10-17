@@ -75,9 +75,10 @@ def get_wholesale_purchase_plan(wholesale_catalog: list[Barrel]):
         order_list = []
         gold = connection.execute(sqlalchemy.text("SELECT gold FROM global_inventory")).scalar_one()
 
+        shop_data = connection.execute(sqlalchemy.text("""SELECT * FROM global_inventory""")).first()
         for item in small_barrels:
-            result = connection.execute(sqlalchemy.text("""SELECT :color FROM global_inventory"""), {"color": sku_dict[item.sku]})
-            num_ml = result.scalar_one()
+            num_ml = getattr(shop_data, sku_dict[item.sku])
+            print(num_ml)
             if num_ml < 100 and item.price <= gold:
                 order_list.append({
                     "sku": item.sku,

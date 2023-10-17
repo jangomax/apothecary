@@ -4,8 +4,8 @@ import requests
 import json
 
 def log(label, message):
-    if type(message) is not str:
-        message = json.dumps(message, default=lambda obj: obj.__dict__, indent=2)
+    if type(message) is not dict:
+      message = json.dumps(message, default=lambda obj: obj.__dict__, indent=2)
     print(message)
     dotenv.load_dotenv()
     webhook_url = os.environ.get("DISCORD_HOOK")
