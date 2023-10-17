@@ -19,14 +19,14 @@ def get_inventory():
     """ """
     with db.engine.begin() as connection:
         inv = connection.execute(sqlalchemy.text("SELECT gold, num_red_ml, num_green_ml, num_blue_ml, num_dark_ml FROM global_inventory")).first()
-        potions = connection.execute(sqlalchemy.text("SELECT qty FROM catalog_item WHERE qty > 0"))
+        potions = connection.execute(sqlalchemy.text("SELECT quantity FROM catalog_item WHERE quantity > 0"))
 
         gold = inv.gold
         total_ml = inv.num_red_ml + inv.num_green_ml + inv.num_blue_ml + inv.num_dark_ml
         total_potions = 0
 
         for potion in potions:
-            total_potions += potion.qty
+            total_potions += potion.quantity
 
         log("Audit", {
             "number_of_potions": total_potions, 
