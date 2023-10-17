@@ -35,21 +35,29 @@ def get_cart(cart_id: int):
     """ """
 
     with db.engine.begin() as connection:
-        result = connection.execute(sqlalchemy.text(f"SELECT customer_name, qty_red, qty_green, qty_blue FROM carts WHERE id = {cart_id}"))
-        row = result.first()
+        customer_name = connection.execute(sqlalchemy.text("""SELECT customer_name FROM carts WHERE id = :id"""), {"id": cart_id}).scalar_one()
+        result = connection.execute(sqlalchemy.text(
+            """
+            SELECT sku, name, cart_item.quantity FROM catalog_item 
+            JOIN cart_item ON cart_item.cart_id = :cart_id
+            WHERE cart_item.item_id = catalog_item.id
+            """), {"cart_id": cart_id})
+        items = []
+        for item in result:
+            items.append({
+                "sku": item.sku,
+                "name": item.name,
+                "quantity": item.quantity
+            })
         log("Get Cart", { 
             "cart_id": cart_id,
-            "customer": row.customer_name,
-            "qty_red": row.qty_red,
-            "qty_green": row.qty_green,
-            "qty_blue": row.qty_blue,
+            "customer": customer_name,
+            "items": items
         })
         return { 
             "cart_id": cart_id,
-            "customer": row.customer_name,
-            "qty_red": row.qty_red,
-            "qty_green": row.qty_green,
-            "qty_blue": row.qty_blue,
+            "customer": customer_name,
+            "items": items
         }
 
 
@@ -60,16 +68,13 @@ class CartItem(BaseModel):
 @router.post("/{cart_id}/items/{item_sku}")
 def set_item_quantity(cart_id: int, item_sku: str, cart_item: CartItem):
     """ """
-    valid_sku = {
-        "RED_POTION_0": "qty_red", 
-        "GREEN_POTION_0": "qty_green", 
-        "BLUE_POTION_0": "qty_blue"
-    }
-    if not valid_sku.get(item_sku):
-        return "OK"
-
     with db.engine.begin() as connection:
-        connection.execute(sqlalchemy.text(f"UPDATE carts SET {valid_sku[item_sku]} = {cart_item.quantity} WHERE id = {cart_id}"))
+        connection.execute(sqlalchemy.text("""
+            INSERT INTO cart_item (cart_id, item_id, quantity) 
+                SELECT :cart_id, id, :qty 
+                FROM catalog_item 
+                WHERE sku = :item_sku
+            """), {"cart_id": cart_id, "item_sku": item_sku, "qty": cart_item.quantity})
     return "OK"
 
 
@@ -80,42 +85,68 @@ class CartCheckout(BaseModel):
 def checkout(cart_id: int, cart_checkout: CartCheckout):
     """ """
 
-    p_type = {
-        "qty_red": "red",
-        "qty_green": "green",
-        "qty_blue": "blue",
-    }
-
     with db.engine.begin() as connection:
-
-        result = connection.execute(sqlalchemy.text(f"SELECT qty_red, qty_green, qty_blue FROM carts WHERE id = {cart_id}")).first()
-        cart = {
-            "red": result.qty_red,
-            "green": result.qty_green,
-            "blue": result.qty_blue,
-        }
 
         total_price = 0
         total_qty = 0
 
-        order = []
+        notEnough = connection.execute(sqlalchemy.text(
+            """
+            SELECT sku, cart_item.quantity FROM cart_item 
+            JOIN catalog_item ON catalog_item.quantity < cart_item.quantity
+            WHERE cart_item.cart_id = :cart_id AND catalog_item.id = cart_item.item_id
+            """
+        ), {"cart_id": cart_id}).all()
 
-        for item in p_type.values():
-            in_stock = connection.execute(sqlalchemy.text(f"SELECT num_potions FROM potions WHERE color = '{item}'")).scalar()
-            order.append({f"Requested {item}": cart[item], "In Stock": in_stock})
-            if cart[item] > in_stock:
-                log("Transaction cancelled.", order)
-                raise HTTPException(status_code=400, detail="Cart cannot be fulfilled.")
-        log("Order can be fulfilled", order)
-        for item in p_type.values():
-            connection.execute(sqlalchemy.text(f"UPDATE global_inventory SET gold = gold + {cart[item] * 50}"))
-            connection.execute(sqlalchemy.text(f"UPDATE potions SET num_potions = num_potions - {cart[item]} WHERE color = '{item}'"))
-            total_price += cart[item] * 50
-            total_qty += cart[item]
-        connection.execute(sqlalchemy.text(f"UPDATE carts SET payment = '{cart_checkout.payment}' WHERE id = {cart_id}"))
+        if len(notEnough) > 0:
+            log("Transaction cancelled.", dict(notEnough))
+            raise HTTPException(status_code=400, detail="Cart cannot be fulfilled.")
+
+        orderLog = []
+
+        # get all items in cart
+        items = connection.execute(sqlalchemy.text(
+            """
+            SELECT sku, name, price, cart_item.quantity FROM catalog_item
+            JOIN cart_item ON catalog_item.id = cart_item.item_id
+            WHERE cart_item.cart_id = :cart_id AND catalog_item.id = cart_item.item_id
+            """
+        ), {"cart_id": cart_id})
+
+        for item in items:
+            paid = item.quantity * item.price
+            total_price += paid
+            connection.execute(sqlalchemy.text(
+                """
+                UPDATE global_inventory SET gold = gold + :paid
+                """
+            ), {"paid": paid})
+            connection.execute(sqlalchemy.text(
+                """
+                UPDATE catalog_item 
+                SET quantity = quantity - :quantity
+                WHERE sku = :sku
+                """
+            ), {"quantity": item.quantity, "sku": item.sku})
+            orderLog.append({
+                "sku": item.sku,
+                "name": item.name,
+                "quantity": item.quantity
+            })
+            total_qty += item.quantity
+
+        connection.execute(sqlalchemy.text(
+            """
+            UPDATE carts SET 
+            payment = :payment,
+            fulfilled = TRUE
+            WHERE id = :cart_id
+            """
+        ), {"payment": cart_checkout.payment, "cart_id": cart_id})
         log("Succesful Checkout!", {
             "total_potions_bought": total_qty, 
-            "total_gold_paid": total_price 
+            "total_gold_paid": total_price,
+            "items": orderLog
         })
         return {
             "total_potions_bought": total_qty, 
