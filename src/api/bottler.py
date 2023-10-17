@@ -23,16 +23,23 @@ def post_deliver_bottles(potions_delivered: list[PotionInventory]):
     """ """
     log("Potions Delivered", potions_delivered)
 
-    p_type = ["red", "green", "blue"]
+    color = ["num_red_ml", "num_green_ml", "num_blue_ml"]
 
     with db.engine.begin() as connection:
         for item in potions_delivered:
-            ml = item.quantity * 100
             qty = item.quantity
-            color = p_type[item.potion_type.index(100)]
 
-            connection.execute(sqlalchemy.text(f"UPDATE potions SET num_ml = num_ml - {ml} WHERE color = '{color}'"))
-            connection.execute(sqlalchemy.text(f"UPDATE potions SET num_potions = num_potions + {qty} WHERE color = '{color}'"))
+            for i in range(len(color)):
+                ml = item.potion_type[i] * qty
+                connection.execute(sqlalchemy.text(f" UPDATE global_inventory SET {color[i]} = {color[i]} - :num_ml """
+                ), {"num_ml": ml})
+            connection.execute(sqlalchemy.text(
+                """
+                UPDATE catalog_item SET 
+                quantity = quantity + :qty 
+                WHERE potion_type = :type
+                """
+            ), {"qty": qty, "type": item.potion_type})
 
     return "OK"
 

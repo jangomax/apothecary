@@ -39,16 +39,10 @@ def post_deliver_barrels(barrels_delivered: list[Barrel]):
             price = item.price
             qty = item.quantity
             ml = item.ml_per_barrel
+            type = sku_dict[item.sku]
 
-            connection.execute(sqlalchemy.text(
-                """
-                UPDATE global_inventory
-                SET gold = gold - :paid
-                :type = :type + :amt
-                """
-                ), 
+            connection.execute(sqlalchemy.text(f" UPDATE global_inventory SET gold = gold - :paid, {type} = {type} + :amt"), 
                 {
-                    "type": sku_dict[item.sku],
                     "amt": qty * ml,
                     "paid": qty * price
                 }
