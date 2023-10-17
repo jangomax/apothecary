@@ -47,25 +47,35 @@ def get_bottle_plan():
     # green potion to add.
     # Expressed in integers from 1 to 100 that must sum up to 100.
 
-    # Initial logic: bottle all barrels into red potions.
-
     with db.engine.begin() as connection:
-        result = connection.execute(sqlalchemy.text("SELECT num_ml, color FROM potions"))
+        num_items = connection.execute(sqlalchemy.text("SELECT sku potion_type FROM catalog_item")).rowcount
+        ml_stock = connection.execute(sqlalchemy.text("SELECT num_red_ml, num_green_ml, num_blue_ml FROM global_inventory")).first()
 
-        p_type = {
-            "red": [100,0,0,0],
-            "green": [0,100,0,0],
-            "blue": [0,0,100,0],
-        }
+        ml = [ml_stock.num_red_ml, ml_stock.num_green_ml, ml_stock.num_blue_ml]
 
-        bottle_order = []
+        bottle_order = {}
+        p_types = {}
+        cant_make = 0
+        while cant_make < num_items * 2:
+            items = connection.execute(sqlalchemy.text("""SELECT sku, potion_type FROM catalog_item"""))
 
-        for row in result:
-            qty = row.num_ml // 100
-            if qty > 0:
-                bottle_order.append({
-                    "potion_type": p_type[row.color],
-                    "quantity": qty,
-                })
+            print(cant_make)
+            for item in items:
+                print(item.sku)
+
+                p_types[item.sku] = item.potion_type
+
+                recipe_cost = item.potion_type
+                if all(recipe_cost[color] <= ml[color] for color in range(len(ml))):
+                    print(f"can make {item.potion_type}")
+                    if bottle_order.get(item.sku):
+                        bottle_order[item.sku] += 1
+                    else:
+                        bottle_order[item.sku] = 1
+                    ml = [ml[i] - recipe_cost[i] for i in range(len(ml))]
+                    print(ml)
+                else:
+                    print("can't make")
+                    cant_make += 1
         log("Bottle Order", bottle_order)
-        return bottle_order
+        return [{"potion_type": p_types[sku], "quantity": bottle_order[sku]} for sku in bottle_order.keys() if bottle_order[sku] > 0]
