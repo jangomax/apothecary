@@ -118,16 +118,23 @@ def checkout(cart_id: int, cart_checkout: CartCheckout):
             total_price += paid
             connection.execute(sqlalchemy.text(
                 """
-                UPDATE global_inventory SET gold = gold + :paid
+                INSERT INTO gold_ledger VALUES (change, description)
+                VALUES (:change, :description)
                 """
-            ), {"paid": paid})
+            ), {"change": paid, "description": f"Sold {item.quantity}x {item.sku}"})
+
             connection.execute(sqlalchemy.text(
                 """
-                UPDATE catalog_item 
-                SET quantity = quantity - :quantity
-                WHERE sku = :sku
+                INSERT INTO item_ledger VALUES (sku, change, description)
+                VALUES (:sku, :change, :description)
                 """
-            ), {"quantity": item.quantity, "sku": item.sku})
+                ), 
+                {
+                    "sku": item.sku,
+                    "change": -(item.quantity),
+                    "description": f"Sold {item.quantity}x {item.sku}"
+                }
+            )
             orderLog.append({
                 "sku": item.sku,
                 "name": item.name,

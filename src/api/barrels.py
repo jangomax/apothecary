@@ -39,12 +39,30 @@ def post_deliver_barrels(barrels_delivered: list[Barrel]):
             price = item.price
             qty = item.quantity
             ml = item.ml_per_barrel
-            type = sku_dict[item.sku]
 
-            connection.execute(sqlalchemy.text(f" UPDATE global_inventory SET gold = gold - :paid, {type} = {type} + :amt"), 
+            connection.execute(sqlalchemy.text(
+                """
+                INSERT INTO gold_ledger (change, description)
+                VALUES (:change, :description)
+                """),
                 {
-                    "amt": qty * ml,
-                    "paid": qty * price
+                    "change": -(qty * price),
+                    "paid": qty * price,
+                    "description": f"{qty}x {item.sku}"
+                }
+            )
+
+            connection.execute(sqlalchemy.text(
+                """
+                INSERT INTO ml_ledger (change_red_ml, change_green_ml, change_blue_ml, change_dark_ml, description)
+                VALUES (:change_red, :change_green, :change_blue, :change_dark, :description)
+                """), 
+                {
+                  "change_red": ml * qty if item.potion_type[0] else 0,
+                  "change_green": ml * qty if item.potion_type[1] else 0,
+                  "change_blue": ml * qty if item.potion_type[2] else 0,
+                  "change_dark": ml * qty if item.potion_type[3] else 0,
+                  "description": f"{qty}x {item.sku}"
                 }
             )
 
@@ -67,11 +85,18 @@ def get_wholesale_purchase_plan(wholesale_catalog: list[Barrel]):
 
         small_barrels = [item for item in wholesale_catalog if sku_dict.get(item.sku)]
         order_list = []
-        gold = connection.execute(sqlalchemy.text("SELECT gold FROM global_inventory")).scalar_one()
+        gold = connection.execute(sqlalchemy.text("SELECT SUM(change) AS gold FROM gold_ledger")).scalar_one()
 
-        shop_data = connection.execute(sqlalchemy.text("""SELECT * FROM global_inventory""")).first()
+        ml_data = connection.execute(sqlalchemy.text(
+            """
+            SELECT SUM(change_red_ml) AS num_red_ml,
+            SUM(change_green_ml) AS num_green_ml,
+            SUM(change_blue_ml) AS num_blue_ml
+            FROM ml_ledger
+            """
+        )).first()
         for item in small_barrels:
-            num_ml = getattr(shop_data, sku_dict[item.sku])
+            num_ml = getattr(ml_data, sku_dict[item.sku])
             print(num_ml)
             if num_ml < 100 and item.price <= gold:
                 order_list.append({

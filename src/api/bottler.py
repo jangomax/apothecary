@@ -29,17 +29,32 @@ def post_deliver_bottles(potions_delivered: list[PotionInventory]):
         for item in potions_delivered:
             qty = item.quantity
 
-            for i in range(len(color)):
-                ml = item.potion_type[i] * qty
-                connection.execute(sqlalchemy.text(f" UPDATE global_inventory SET {color[i]} = {color[i]} - :num_ml """
-                ), {"num_ml": ml})
             connection.execute(sqlalchemy.text(
                 """
-                UPDATE catalog_item SET 
-                quantity = quantity + :qty 
-                WHERE potion_type = :type
+                INSERT INTO ml_ledger (change_red_ml, change_green_ml, change_blue_ml, change_dark_ml, description) 
+                VALUES (:red, :green, :blue, :dark, :description)
                 """
-            ), {"qty": qty, "type": item.potion_type})
+            ), 
+            {
+                "red": -(item.potion_type[0] * qty),
+                "green": -(item.potion_type[1] * qty),
+                "blue": -(item.potion_type[2] * qty),
+                "dark": -(item.potion_type[3] * qty),
+                "description": f"{qty}x {item.sku}"
+            })
+
+            connection.execute(sqlalchemy.text(
+                """
+                INSERT INTO item_ledger (sku, change, description)
+                VALUES :sku, :change, :description
+                """
+              ),
+              {
+                "sku": item.sku,
+                "change": qty,
+                "description": f"Delivered {qty}x {item.sku}"
+              }
+            )
 
     return "OK"
 
@@ -55,10 +70,19 @@ def get_bottle_plan():
     # Expressed in integers from 1 to 100 that must sum up to 100.
 
     with db.engine.begin() as connection:
-        num_items = connection.execute(sqlalchemy.text("SELECT sku potion_type FROM catalog_item")).rowcount
-        ml_stock = connection.execute(sqlalchemy.text("SELECT num_red_ml, num_green_ml, num_blue_ml FROM global_inventory")).first()
+        num_items = connection.execute(sqlalchemy.text("SELECT sku, potion_type FROM catalog_item")).rowcount
+        ml_stock = connection.execute(sqlalchemy.text(
+            """
+            SELECT
+            SUM(change_red_ml) AS num_red_ml,
+            SUM(change_green_ml) AS num_green_ml,
+            SUM(change_blue_ml) AS num_blue_ml
+            FROM ml_ledger
+            """
+        )).first()
 
         ml = [ml_stock.num_red_ml, ml_stock.num_green_ml, ml_stock.num_blue_ml]
+        print(ml)
 
         bottle_order = {}
         p_types = {}
