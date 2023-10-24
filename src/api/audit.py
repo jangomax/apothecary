@@ -28,7 +28,7 @@ def get_inventory():
             SUM(change_dark_ml) AS num_dark_ml
             FROM ml_ledger
             """
-        ))
+        )).first()
         num_potions = connection.execute(sqlalchemy.text("SELECT SUM(change) AS num_potions FROM item_ledger")).scalar_one()
 
         total_ml = ml.num_red_ml + ml.num_green_ml + ml.num_blue_ml + ml.num_dark_ml
