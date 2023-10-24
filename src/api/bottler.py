@@ -26,35 +26,56 @@ def post_deliver_bottles(potions_delivered: list[PotionInventory]):
     color = ["num_red_ml", "num_green_ml", "num_blue_ml"]
 
     with db.engine.begin() as connection:
+        transaction_id = connection.execute(sqlalchemy.text(
+            """
+            INSERT INTO transactions (description)
+            VALUES (:desc)
+            """
+        ), {"desc": "Bottle Delivery"})
+
+        change_red = 0
+        change_green = 0
+        change_blue = 0
+        change_dark = 0
+
         for item in potions_delivered:
             qty = item.quantity
+            
+            sku = connection.execute(sqlalchemy.text(
+                """
+                SELECT sku FROM catalog_item WHERE potion_type = :potion_type
+                """
+            ), {"potion_type": item.potion_type}).scalar_one()
+
+            change_red += item.potion_type[0] * qty
+            change_green += item.potion_type[1] * qty
+            change_blue += item.potion_type[2] * qty
+            change_dark += item.potion_type[3] * qty
 
             connection.execute(sqlalchemy.text(
                 """
-                INSERT INTO ml_ledger (change_red_ml, change_green_ml, change_blue_ml, change_dark_ml, description) 
-                VALUES (:red, :green, :blue, :dark, :description)
-                """
-            ), 
-            {
-                "red": -(item.potion_type[0] * qty),
-                "green": -(item.potion_type[1] * qty),
-                "blue": -(item.potion_type[2] * qty),
-                "dark": -(item.potion_type[3] * qty),
-                "description": f"{qty}x {item.sku}"
-            })
-
-            connection.execute(sqlalchemy.text(
-                """
-                INSERT INTO item_ledger (sku, change, description)
-                VALUES :sku, :change, :description
+                INSERT INTO item_ledger (sku, change, transaction_id)
+                VALUES (:sku, :change, :transaction_id)
                 """
               ),
               {
-                "sku": item.sku,
+                "sku": sku,
                 "change": qty,
-                "description": f"Delivered {qty}x {item.sku}"
+                "transaction_id": transaction_id
               }
             )
+        connection.execute(sqlalchemy.text(
+            """
+            INSERT INTO ml_ledger (change_red_ml, change_green_ml, change_blue_ml, change_dark_ml, transaction_id)
+            VALUES (:change_red, :change_green, :change_blue, :change_dark, :transaction_id)
+            """),
+            {
+                "change_red": -change_red,
+                "change_green": -change_green,
+                "change_blue": -change_blue,
+                "change_red": -change_dark,
+                "transaction_id": transaction_id
+            })
 
     return "OK"
 

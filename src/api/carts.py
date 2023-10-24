@@ -92,9 +92,15 @@ def checkout(cart_id: int, cart_checkout: CartCheckout):
 
         notEnough = connection.execute(sqlalchemy.text(
             """
-            SELECT sku, cart_item.quantity FROM cart_item 
-            JOIN catalog_item ON catalog_item.quantity < cart_item.quantity
-            WHERE cart_item.cart_id = :cart_id AND catalog_item.id = cart_item.item_id
+            SELECT catalog_item.sku, cart_item.quantity
+            FROM cart_item
+            JOIN catalog_item ON cart_item.item_id = catalog_item.id
+            JOIN (
+              SELECT sku, SUM(change) as quantity
+              FROM item_ledger
+              GROUP BY sku
+            ) AS inventory ON inventory.sku = catalog_item.sku
+            WHERE cart_item.cart_id = :cart_id AND catalog_item.quantity < cart_item.quantity
             """
         ), {"cart_id": cart_id}).all()
 
@@ -103,6 +109,14 @@ def checkout(cart_id: int, cart_checkout: CartCheckout):
             raise HTTPException(status_code=400, detail="Cart cannot be fulfilled.")
 
         orderLog = []
+
+        transaction_id = connection.execute(sqlalchemy.text(
+            """
+            INSERT INTO transactions (description)
+            VALUES (:description)
+            RETURNING id
+            """
+        ), {"description": f"Transaction in progress"}).scalar_one()
 
         # get all items in cart
         items = connection.execute(sqlalchemy.text(
@@ -113,26 +127,29 @@ def checkout(cart_id: int, cart_checkout: CartCheckout):
             """
         ), {"cart_id": cart_id})
 
+        desc = ""
+
         for item in items:
             paid = item.quantity * item.price
             total_price += paid
+            desc.append(f"{paid}g: {item.quantity}x {item.sku}, ")
             connection.execute(sqlalchemy.text(
                 """
-                INSERT INTO gold_ledger VALUES (change, description)
-                VALUES (:change, :description)
+                INSERT INTO gold_ledger (change, transaction_id)
+                VALUES (:change, transaction_id)
                 """
-            ), {"change": paid, "description": f"Sold {item.quantity}x {item.sku}"})
+            ), {"change": paid, "transaction_id": transaction_id})
 
             connection.execute(sqlalchemy.text(
                 """
-                INSERT INTO item_ledger VALUES (sku, change, description)
-                VALUES (:sku, :change, :description)
+                INSERT INTO item_ledger (sku, change, transaction_id)
+                VALUES (:sku, :change, :transaction_id)
                 """
                 ), 
                 {
                     "sku": item.sku,
                     "change": -(item.quantity),
-                    "description": f"Sold {item.quantity}x {item.sku}"
+                    "transaction_id": transaction_id
                 }
             )
             orderLog.append({
@@ -150,6 +167,13 @@ def checkout(cart_id: int, cart_checkout: CartCheckout):
             WHERE id = :cart_id
             """
         ), {"payment": cart_checkout.payment, "cart_id": cart_id})
+        connection.execute(sqlalchemy.text(
+            """
+            UPDATE transactions
+            SET description = :description
+            WHERE id = :transaction_id
+            """
+        ), {"transaction_id": transaction_id})
         log("Succesful Checkout!", {
             "total_potions_bought": total_qty, 
             "total_gold_paid": total_price,

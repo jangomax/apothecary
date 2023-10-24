@@ -35,36 +35,56 @@ def post_deliver_barrels(barrels_delivered: list[Barrel]):
     }
 
     with db.engine.begin() as connection:
+
+        transaction_id = connection.execute(sqlalchemy.text(
+            """
+            INSERT INTO transactions (description)
+            VALUES (:desc)
+            RETURNING id
+            """
+        ), {"desc": "Barrel Purchase"}).scalar_one()
+
+        total_price = 0
+        change_red = 0
+        change_green = 0
+        change_blue = 0
+        change_dark = 0
+        
         for item in barrels_delivered:
             price = item.price
             qty = item.quantity
             ml = item.ml_per_barrel
 
-            connection.execute(sqlalchemy.text(
-                """
-                INSERT INTO gold_ledger (change, description)
-                VALUES (:change, :description)
-                """),
-                {
-                    "change": -(qty * price),
-                    "paid": qty * price,
-                    "description": f"{qty}x {item.sku}"
-                }
-            )
+            total_price += (qty * price)
 
-            connection.execute(sqlalchemy.text(
-                """
-                INSERT INTO ml_ledger (change_red_ml, change_green_ml, change_blue_ml, change_dark_ml, description)
-                VALUES (:change_red, :change_green, :change_blue, :change_dark, :description)
-                """), 
-                {
-                  "change_red": ml * qty if item.potion_type[0] else 0,
-                  "change_green": ml * qty if item.potion_type[1] else 0,
-                  "change_blue": ml * qty if item.potion_type[2] else 0,
-                  "change_dark": ml * qty if item.potion_type[3] else 0,
-                  "description": f"{qty}x {item.sku}"
-                }
-            )
+            change_red += ml * qty if item.potion_type[0] else 0
+            change_green += ml * qty if item.potion_type[1] else 0
+            change_blue += ml * qty if item.potion_type[2] else 0
+            change_dark += ml * qty if item.potion_type[3] else 0
+
+        connection.execute(sqlalchemy.text(
+            """
+            INSERT INTO ml_ledger (change_red_ml, change_green_ml, change_blue_ml, change_dark_ml, transaction_id)
+            VALUES (:change_red, :change_green, :change_blue, :change_dark, :transaction_id)
+            """),
+            {
+                "change_red": change_red,
+                "change_green": change_green,
+                "change_blue": change_blue,
+                "change_dark": change_dark,
+                "transaction_id": transaction_id
+            }
+        )
+
+        connection.execute(sqlalchemy.text(
+            """
+            INSERT INTO gold_ledger (change, transaction_id)
+            VALUES (:change, :transaction_id)
+            """),
+            {
+                "change": -(total_price),
+                "transaction_id": transaction_id
+            })
 
         return "OK"
 
