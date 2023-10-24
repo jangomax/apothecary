@@ -31,7 +31,7 @@ def post_deliver_bottles(potions_delivered: list[PotionInventory]):
             INSERT INTO transactions (description)
             VALUES (:desc)
             """
-        ), {"desc": "Bottle Delivery"})
+        ), {"desc": "Bottle Delivery"}).scalar_one()
 
         change_red = 0
         change_green = 0
