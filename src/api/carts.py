@@ -100,7 +100,7 @@ def checkout(cart_id: int, cart_checkout: CartCheckout):
               FROM item_ledger
               GROUP BY sku
             ) AS inventory ON inventory.sku = catalog_item.sku
-            WHERE cart_item.cart_id = :cart_id AND catalog_item.quantity < cart_item.quantity
+            WHERE cart_item.cart_id = :cart_id AND inventory.quantity < cart_item.quantity
             """
         ), {"cart_id": cart_id}).all()
 
@@ -132,11 +132,11 @@ def checkout(cart_id: int, cart_checkout: CartCheckout):
         for item in items:
             paid = item.quantity * item.price
             total_price += paid
-            desc.append(f"{paid}g: {item.quantity}x {item.sku}, ")
+            desc += f"{paid}g: {item.quantity}x {item.sku}, "
             connection.execute(sqlalchemy.text(
                 """
                 INSERT INTO gold_ledger (change, transaction_id)
-                VALUES (:change, transaction_id)
+                VALUES (:change, :transaction_id)
                 """
             ), {"change": paid, "transaction_id": transaction_id})
 
@@ -173,7 +173,7 @@ def checkout(cart_id: int, cart_checkout: CartCheckout):
             SET description = :description
             WHERE id = :transaction_id
             """
-        ), {"transaction_id": transaction_id})
+        ), {"description": desc[:-2], "transaction_id": transaction_id})
         log("Succesful Checkout!", {
             "total_potions_bought": total_qty, 
             "total_gold_paid": total_price,
