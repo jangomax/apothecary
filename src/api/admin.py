@@ -44,6 +44,27 @@ def reset():
             VALUES (:change, :transaction_id)
             """), {"change": 100, "transaction_id": transaction_id})
 
+        connection.execute(sqlalchemy.text(
+            """
+            INSERT INTO ml_ledger (change_red_ml, change_green_ml, change_blue_ml, change_dark_ml, transaction_id)
+            VALUES (0,0,0,0, :transaction_id)
+            """
+        ), {"transaction_id": transaction_id})
+
+        catalog = connection.execute(sqlalchemy.text(
+            """
+            SELECT sku FROM catalog_item
+            """
+        ))
+
+        for item in catalog:
+            connection.execute(sqlalchemy.text(
+                """
+                INSERT INTO item_ledger (sku, change, transaction_id)
+                VALUES (:sku, :change, :transaction_id)
+                """
+            ), {"sku": item.sku, "change": 0, "transaction_id": transaction_id})
+
 
     return "OK"
 
