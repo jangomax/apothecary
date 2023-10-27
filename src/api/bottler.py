@@ -125,6 +125,7 @@ def get_bottle_plan():
                     else:
                         bottle_order[item.sku] = 1
                     ml = [ml[i] - recipe_cost[i] for i in range(len(ml))]
+                    cant_make //= 2
                     print(ml)
                 else:
                     print("can't make")

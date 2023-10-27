@@ -97,13 +97,19 @@ def get_wholesale_purchase_plan(wholesale_catalog: list[Barrel]):
 
     with db.engine.begin() as connection:
 
-        sku_dict = {
+        small_dict = {
             "SMALL_RED_BARREL": "num_red_ml",
             "SMALL_GREEN_BARREL": "num_green_ml",
             "SMALL_BLUE_BARREL": "num_blue_ml"
         }
+        medium_dict = {
+            "MEDIUM_RED_BARREL": "num_red_ml",
+            "MEDIUM_GREEN_BARREL": "num_green_ml",
+            "MEDIUM_BLUE_BARREL": "num_blue_ml"
+        }
 
-        small_barrels = [item for item in wholesale_catalog if sku_dict.get(item.sku)]
+        small_barrels = [item for item in wholesale_catalog if small_dict.get(item.sku)]
+        medium_barrels = [item for item in wholesale_catalog if medium_dict.get(item.sku)]
         order_list = []
         gold = connection.execute(sqlalchemy.text("SELECT SUM(change) AS gold FROM gold_ledger")).scalar_one()
 
@@ -116,9 +122,19 @@ def get_wholesale_purchase_plan(wholesale_catalog: list[Barrel]):
             """
         )).first()
         for item in small_barrels:
-            num_ml = getattr(ml_data, sku_dict[item.sku])
+            num_ml = getattr(ml_data, small_dict[item.sku])
             print(num_ml)
             if num_ml < 100 and item.price <= gold:
+                order_list.append({
+                    "sku": item.sku,
+                    "quantity": 1
+                })
+                gold -= item.price
+
+        for item in medium_barrels:
+            num_ml = getattr(ml_data, medium_dict[item.sku])
+            print(num_ml)
+            if num_ml < 2000 and item.price <= gold:
                 order_list.append({
                     "sku": item.sku,
                     "quantity": 1
