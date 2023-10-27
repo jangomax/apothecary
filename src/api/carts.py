@@ -145,10 +145,8 @@ def search_orders(
                 }
             )
 
-    log(f"/search[{search_page}]", {"res": line_items})
-
     return {
-        "previous": str(int(search_page) - 5) if search_page != '' and int(search_page) > 5 else None,
+        "previous": str(int(search_page) - 5) if search_page != '' and int(search_page) >= 5 else 0,
         "next": str(int(search_page) + 5) if search_page != '' else 5,
         "results": line_items
     }
