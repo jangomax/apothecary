@@ -57,18 +57,61 @@ def search_orders(
     time is 5 total line items.
     """
 
+    # with db.engine.begin() as connection:
+    #     result = connection.execute(sqlalchemy.text(
+    #         """
+    #         SELECT * FROM cart_item
+    #         JOIN catalog_item ON cart_item.item_id = catalog_item.id
+    #         JOIN carts ON cart_item.cart_id = carts.id
+    #         """))
+
+    if sort_col is search_sort_options.customer_name:
+        order_by = " customer_name "
+    elif sort_col is search_sort_options.item_sku:
+        order_by = " sku "
+    elif sort_col is search_sort_options.line_item_total:
+        order_by = " total "
+    elif sort_col is search_sort_options.timestamp:
+        order_by = " time "
+    else:
+        raise HTTPException(400, detail="Cannot sort by property.")
+
+    stmt = """
+        SELECT catalog_item.sku, cart_item.quantity * price AS total, time
+        FROM cart_item
+        JOIN catalog_item ON cart_item.item_id = catalog_item.id
+        JOIN carts ON cart_item.item_id = carts.id AND cart_item.cart_id = carts.id
+    """
+
+    stmt += f" ORDER BY {order_by} {search_sort_options.sort_order}"
+    stmt += f" LIMIT 5 {('OFFSET ' + int(search_page)) if search_page != '' else ('')}"
+
+    # filter only if name parameter is passed
+    if potion_sku != "" and customer_name != "":
+        stmt += f" WHERE catalog_item.sku ILIKE %{potion_sku}% AND carts.customer_name ILIKE %{customer_name}"
+    elif potion_sku != "":
+        stmt += f" WHERE catalog_item.sku ILIKE %{potion_sku}%"
+    elif customer_name != "":
+        stmt += f" WHERE carts.customer_name ILIKE %{customer_name}%"
+
+    with db.engine.connect() as connection:
+        result = connection.execute(sqlalchemy.text(stmt))
+        line_items = []
+        for i, row in enumerate(result):
+            line_items.append(
+                {
+                    "line_item_id": i,
+                    "item_sku": row.sku,
+                    "customer_name": row.customer_name,
+                    "line_item_total": row.quantity * row.price,
+                    "timestamp": row.time
+                }
+            )
+
     return {
-        "previous": "",
-        "next": "",
-        "results": [
-            {
-                "line_item_id": 1,
-                "item_sku": "1 oblivion potion",
-                "customer_name": "Scaramouche",
-                "line_item_total": 50,
-                "timestamp": "2021-01-01T00:00:00Z",
-            }
-        ],
+        "previous": str(int(search_page) - 5) if int(search_page) > 5 else None,
+        "next": str(int(search_page) + 5),
+        "results": line_items
     }
 
 
