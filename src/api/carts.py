@@ -22,7 +22,7 @@ class search_sort_options(str, Enum):
 
 class search_sort_order(str, Enum):
     asc = "asc"
-    desc = "desc"   
+    desc = "desc"
 
 @router.get("/search/", tags=["search"])
 def search_orders(
@@ -65,6 +65,41 @@ def search_orders(
     #         JOIN carts ON cart_item.cart_id = carts.id
     #         """))
 
+    # tables = sqlalchemy.MetaData()
+
+    # if sort_col is search_sort_options.customer_name:
+    #     order_by = search_sort_options.customer_name
+    # elif sort_col is search_sort_options.item_sku:
+    #     order_by = tables.carts.c.sku
+    # elif sort_col is search_sort_options.line_item_total:
+    #     order_by = tables.carts.c.quantity
+    # elif sort_col is search_sort_options.timestamp:
+    #     order_by = tables.carts.c.time
+    # else:
+    #     raise HTTPException(400, detail="Cannot sort by property.")
+
+    # j = sqlalchemy.join(sqlalchemy.join(tables.cart_item, tables.catalog_item,
+    #                     tables.cart_item.c.item_id == tables.catalog_item.id), 
+    #                     tables.carts, tables.carts.id == tables.cart_item.cart_id)
+
+    # stmt = (
+    #     sqlalchemy.select(
+    #         tables.cart_item.c.sku,
+    #         tables.cart_item.c.quantity,
+    #         tables.cart_item.c.price,
+    #         tables.cart_item.c.time
+    #     )
+    #     .select_from(j)
+    #     .limit(5)
+    #     .order_by(order_by, tables.carts.c.id)
+    # )
+
+    # filter only if name parameter is passed
+    # if potion_sku != "":
+    #     stmt = stmt.where(tables.carts.c.sku.ilike(f"%{potion_sku}%"))
+    # if customer_name != "":
+    #     stmt = stmt.where(tables.carts.c.sku.ilike(f"%{customer_name}%"))
+
     if sort_col is search_sort_options.customer_name:
         order_by = " customer_name "
     elif sort_col is search_sort_options.item_sku:
@@ -77,14 +112,16 @@ def search_orders(
         raise HTTPException(400, detail="Cannot sort by property.")
 
     stmt = """
-        SELECT catalog_item.sku, cart_item.quantity * price AS total, time
+        SELECT catalog_item.sku, cart_item.quantity * price AS total, customer_name, time
         FROM cart_item
         JOIN catalog_item ON cart_item.item_id = catalog_item.id
-        JOIN carts ON cart_item.item_id = carts.id AND cart_item.cart_id = carts.id
+        JOIN carts ON cart_item.cart_id = carts.id AND cart_item.cart_id = carts.id
     """
 
-    stmt += f" ORDER BY {order_by} {search_sort_options.sort_order}"
-    stmt += f" LIMIT 5 {('OFFSET ' + int(search_page)) if search_page != '' else ('')}"
+    sort = "asc" if sort_order is search_sort_order.asc else "desc"
+
+    stmt += f" ORDER BY {order_by} {sort}"
+    stmt += f" LIMIT 5 {('OFFSET ' + search_page) if search_page != '' else ('')}"
 
     # filter only if name parameter is passed
     if potion_sku != "" and customer_name != "":
@@ -94,8 +131,8 @@ def search_orders(
     elif customer_name != "":
         stmt += f" WHERE carts.customer_name ILIKE %{customer_name}%"
 
-    with db.engine.connect() as connection:
-        result = connection.execute(sqlalchemy.text(stmt))
+    with db.engine.connect() as conn:
+        result = conn.execute(sqlalchemy.text(stmt))
         line_items = []
         for i, row in enumerate(result):
             line_items.append(
@@ -103,14 +140,16 @@ def search_orders(
                     "line_item_id": i,
                     "item_sku": row.sku,
                     "customer_name": row.customer_name,
-                    "line_item_total": row.quantity * row.price,
+                    "line_item_total": row.total,
                     "timestamp": row.time
                 }
             )
 
+    log(f"/search[{search_page}]", {"res": line_items})
+
     return {
-        "previous": str(int(search_page) - 5) if int(search_page) > 5 else None,
-        "next": str(int(search_page) + 5),
+        "previous": str(int(search_page) - 5) if search_page != '' and int(search_page) > 5 else None,
+        "next": str(int(search_page) + 5) if search_page != '' else 5,
         "results": line_items
     }
 
