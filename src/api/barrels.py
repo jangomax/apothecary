@@ -111,6 +111,13 @@ def get_wholesale_purchase_plan(wholesale_catalog: list[Barrel]):
         small_barrels = [item for item in wholesale_catalog if small_dict.get(item.sku)]
         medium_barrels = [item for item in wholesale_catalog if medium_dict.get(item.sku)]
         order_list = []
+
+        num_potions = connection.execute(sqlalchemy.text("SELECT SUM(change) AS num_potions FROM item_ledger")).scalar_one()
+
+        if num_potions > 64:
+            log("Plan", order_list)
+            return order_list
+
         gold = connection.execute(sqlalchemy.text("SELECT SUM(change) AS gold FROM gold_ledger")).scalar_one()
 
         ml_data = connection.execute(sqlalchemy.text(
