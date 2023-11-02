@@ -114,7 +114,7 @@ def get_wholesale_purchase_plan(wholesale_catalog: list[Barrel]):
 
         num_potions = connection.execute(sqlalchemy.text("SELECT SUM(change) AS num_potions FROM item_ledger")).scalar_one()
 
-        if num_potions > 64:
+        if num_potions > 256:
             log("Plan", order_list)
             return order_list
 
