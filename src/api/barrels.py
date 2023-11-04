@@ -110,15 +110,16 @@ def get_wholesale_purchase_plan(wholesale_catalog: list[Barrel]):
 
         small_barrels = [item for item in wholesale_catalog if small_dict.get(item.sku)]
         medium_barrels = [item for item in wholesale_catalog if medium_dict.get(item.sku)]
-        order_list = []
+        order_dict = {}
 
         num_potions = connection.execute(sqlalchemy.text("SELECT SUM(change) AS num_potions FROM item_ledger")).scalar_one()
 
         if num_potions > 256:
-            log("Plan", order_list)
-            return order_list
+            log("Plan", {"plan":"Nahhh we have too much"})
+            return []
 
         gold = connection.execute(sqlalchemy.text("SELECT SUM(change) AS gold FROM gold_ledger")).scalar_one()
+        initialGold = gold
 
         ml_data = connection.execute(sqlalchemy.text(
             """
@@ -128,25 +129,32 @@ def get_wholesale_purchase_plan(wholesale_catalog: list[Barrel]):
             FROM ml_ledger
             """
         )).first()
-        for item in small_barrels:
-            num_ml = getattr(ml_data, small_dict[item.sku])
-            print(num_ml)
-            if num_ml < 100 and item.price <= gold:
-                order_list.append({
-                    "sku": item.sku,
-                    "quantity": 1
-                })
-                gold -= item.price
+        limit = 0
+        if len(medium_barrels) == 0:
+            while gold > initialGold // 2 and limit < 9:
+                limit += 1
+                for item in small_barrels:
+                    num_ml = getattr(ml_data, small_dict[item.sku])
+                    print(num_ml)
+                    if num_ml < 100 and item.price <= gold:
+                        order_dict[item.sku] = 1 + order_dict.get(item.sku, 0)
+                        gold -= item.price
+        else:
+            for item in small_barrels:
+                num_ml = getattr(ml_data, small_dict[item.sku])
+                print(num_ml)
+                if num_ml < 100 and item.price <= gold:
+                    order_dict[item.sku] = 1 + order_dict.get(item.sku, 0)
+                    gold -= item.price
+        limit = 0
+        while gold > initialGold // 2 and limit < 9:
+            limit += 1
+            for item in medium_barrels:
+                num_ml = getattr(ml_data, medium_dict[item.sku])
+                print(num_ml)
+                if num_ml < 2000 and item.price <= gold:
+                    order_dict[item.sku] = 1 + order_dict.get(item.sku, 0)
+                    gold -= item.price
+        log("Plan", order_dict)
 
-        for item in medium_barrels:
-            num_ml = getattr(ml_data, medium_dict[item.sku])
-            print(num_ml)
-            if num_ml < 2000 and item.price <= gold:
-                order_list.append({
-                    "sku": item.sku,
-                    "quantity": 1
-                })
-                gold -= item.price
-        log("Plan", order_list)
-
-        return order_list
+        return [{"sku": k, "quantity": order_dict[k]} for k in order_dict]

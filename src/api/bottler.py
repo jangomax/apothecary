@@ -113,6 +113,8 @@ def get_bottle_plan():
 
             print(cant_make)
             for item in items:
+                if item.sku == 'BG_POTION_0':
+                    continue
                 print(item.sku)
 
                 p_types[item.sku] = item.potion_type
