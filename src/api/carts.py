@@ -118,11 +118,6 @@ def search_orders(
         JOIN carts ON cart_item.cart_id = carts.id AND cart_item.cart_id = carts.id
     """
 
-    sort = "asc" if sort_order is search_sort_order.asc else "desc"
-
-    stmt += f" ORDER BY {order_by} {sort}"
-    stmt += f" LIMIT 5 {('OFFSET ' + search_page) if search_page != '' else ('')}"
-
     # filter only if name parameter is passed
     if potion_sku != "" and customer_name != "":
         stmt += f" WHERE catalog_item.sku ILIKE %{potion_sku}% AND carts.customer_name ILIKE %{customer_name}"
@@ -130,6 +125,10 @@ def search_orders(
         stmt += f" WHERE catalog_item.sku ILIKE %{potion_sku}%"
     elif customer_name != "":
         stmt += f" WHERE carts.customer_name ILIKE %{customer_name}%"
+
+    sort = "asc" if sort_order is search_sort_order.asc else "desc"
+    stmt += f" ORDER BY {order_by} {sort}"
+    stmt += f" LIMIT 5 {('OFFSET ' + search_page) if search_page != '' else ('')}"
 
     with db.engine.connect() as conn:
         result = conn.execute(sqlalchemy.text(stmt))

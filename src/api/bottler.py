@@ -91,6 +91,8 @@ def get_bottle_plan():
     # Expressed in integers from 1 to 100 that must sum up to 100.
 
     with db.engine.begin() as connection:
+        num_potions = connection.execute(sqlalchemy.text("SELECT SUM(change) AS num_potions FROM item_ledger")).scalar_one()
+
         num_items = connection.execute(sqlalchemy.text("SELECT sku, potion_type FROM catalog_item")).rowcount
         ml_stock = connection.execute(sqlalchemy.text(
             """
@@ -108,7 +110,7 @@ def get_bottle_plan():
         bottle_order = {}
         p_types = {}
         cant_make = 0
-        while cant_make < num_items * 2:
+        while cant_make < num_items * 2 and num_potions < 299:
             items = connection.execute(sqlalchemy.text("""SELECT sku, potion_type FROM catalog_item"""))
 
             print(cant_make)
@@ -126,6 +128,7 @@ def get_bottle_plan():
                         bottle_order[item.sku] += 1
                     else:
                         bottle_order[item.sku] = 1
+                    num_potions += 1
                     ml = [ml[i] - recipe_cost[i] for i in range(len(ml))]
                     cant_make //= 2
                     print(ml)
