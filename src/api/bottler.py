@@ -110,7 +110,7 @@ def get_bottle_plan():
         bottle_order = {}
         p_types = {}
         cant_make = 0
-        while cant_make < num_items * 2 and num_potions < 299:
+        while cant_make < num_items * 2 and num_potions < 295:
             items = connection.execute(sqlalchemy.text("""SELECT sku, potion_type FROM catalog_item"""))
 
             print(cant_make)

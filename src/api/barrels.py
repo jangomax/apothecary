@@ -129,7 +129,11 @@ def get_wholesale_purchase_plan(wholesale_catalog: list[Barrel]):
             FROM ml_ledger
             """
         )).first()
+        total_ml = ml_data.num_red_ml + ml_data.num_green_ml + ml_data.num_blue_ml
         limit = 0
+        if total_ml > 24000:
+            log("Plan", {"Barreling":"Too much ml"})
+            return []
         if len(medium_barrels) == 0:
             while gold > initialGold // 2 and limit < 9:
                 limit += 1
