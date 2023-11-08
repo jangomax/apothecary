@@ -104,30 +104,47 @@ def get_bottle_plan():
             """
         )).first()
 
+        sold_recently = connection.execute(sqlalchemy.text(
+            """
+            WITH recent AS (
+              SELECT sku, transactions.id
+              FROM item_ledger
+              JOIN transactions ON item_ledger.transaction_id = transactions.id
+              WHERE change < 0
+              ORDER BY transactions.id DESC
+              LIMIT 6
+            )
+            SELECT DISTINCT sku FROM recent
+            """
+        ))
+
+        sku_list = [row.sku for row in sold_recently.fetchall()]
+        print(sku_list)
+
         ml = [ml_stock.num_red_ml, ml_stock.num_green_ml, ml_stock.num_blue_ml]
         print(ml)
 
-        bottle_order = {}
         p_types = {}
+        bottle_order = {}
         cant_make = 0
         while cant_make < num_items * 2 and num_potions < 295:
-            items = connection.execute(sqlalchemy.text("""SELECT sku, potion_type FROM catalog_item"""))
-
             print(cant_make)
-            for item in items:
-                if item.sku == 'BG_POTION_0':
+            for sku in sku_list:
+                if sku == 'BG_POTION_0' or sku == 'BLUE_POTION_0':
                     continue
-                print(item.sku)
+                potion_type = connection.execute(sqlalchemy.text(
+                    """
+                    SELECT potion_type FROM catalog_item
+                    WHERE sku = :sku
+                    """), {"sku": sku}).scalar_one()
+                print(sku)
 
-                p_types[item.sku] = item.potion_type
-
-                recipe_cost = item.potion_type
+                p_types[sku] = potion_type
+                recipe_cost = potion_type
                 if all(recipe_cost[color] <= ml[color] for color in range(len(ml))):
-                    print(f"can make {item.potion_type}")
-                    if bottle_order.get(item.sku):
-                        bottle_order[item.sku] += 1
-                    else:
-                        bottle_order[item.sku] = 1
+                    print(f"can make {potion_type}")
+
+                    bottle_order[sku] = 1 + bottle_order.get(sku, 0)
                     num_potions += 1
                     ml = [ml[i] - recipe_cost[i] for i in range(len(ml))]
                     cant_make //= 2

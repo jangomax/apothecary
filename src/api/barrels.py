@@ -112,12 +112,6 @@ def get_wholesale_purchase_plan(wholesale_catalog: list[Barrel]):
         medium_barrels = [item for item in wholesale_catalog if medium_dict.get(item.sku)]
         order_dict = {}
 
-        num_potions = connection.execute(sqlalchemy.text("SELECT SUM(change) AS num_potions FROM item_ledger")).scalar_one()
-
-        if num_potions > 256:
-            log("Plan", {"plan":"Nahhh we have too much"})
-            return []
-
         gold = connection.execute(sqlalchemy.text("SELECT SUM(change) AS gold FROM gold_ledger")).scalar_one()
         initialGold = gold
 
@@ -131,7 +125,7 @@ def get_wholesale_purchase_plan(wholesale_catalog: list[Barrel]):
         )).first()
         total_ml = ml_data.num_red_ml + ml_data.num_green_ml + ml_data.num_blue_ml
         limit = 0
-        if total_ml > 24000:
+        if total_ml > 80000:
             log("Plan", {"Barreling":"Too much ml"})
             return []
         if len(medium_barrels) == 0:
