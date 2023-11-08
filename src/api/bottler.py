@@ -130,7 +130,7 @@ def get_bottle_plan():
         while cant_make < num_items * 2 and num_potions < 295:
             print(cant_make)
             for sku in sku_list:
-                if sku == 'BG_POTION_0' or sku == 'BLUE_POTION_0':
+                if sku == 'BG_POTION_0':
                     continue
                 potion_type = connection.execute(sqlalchemy.text(
                     """
