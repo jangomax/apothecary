@@ -134,14 +134,14 @@ def get_wholesale_purchase_plan(wholesale_catalog: list[Barrel]):
                 for item in small_barrels:
                     num_ml = getattr(ml_data, small_dict[item.sku])
                     print(num_ml)
-                    if num_ml < 100 and item.price <= gold:
+                    if num_ml < 1000 and item.price <= gold:
                         order_dict[item.sku] = 1 + order_dict.get(item.sku, 0)
                         gold -= item.price
         else:
             for item in small_barrels:
                 num_ml = getattr(ml_data, small_dict[item.sku])
                 print(num_ml)
-                if num_ml < 100 and item.price <= gold:
+                if num_ml < 1000 and item.price <= gold:
                     order_dict[item.sku] = 1 + order_dict.get(item.sku, 0)
                     gold -= item.price
         limit = 0

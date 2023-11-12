@@ -118,7 +118,8 @@ def get_bottle_plan():
             """
         ))
 
-        sku_list = [row.sku for row in sold_recently.fetchall()]
+        # sku_list = [row.sku for row in sold_recently.fetchall()]
+        sku_list = ["RED_POTION_0", "GREEN_POTION_0", "YEL_POTION_0", "PURPLY_POTION_0", "BLUE_POTION_0"]
         print(sku_list)
 
         ml = [ml_stock.num_red_ml, ml_stock.num_green_ml, ml_stock.num_blue_ml]
