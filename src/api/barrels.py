@@ -94,6 +94,7 @@ def post_deliver_barrels(barrels_delivered: list[Barrel]):
 def get_wholesale_purchase_plan(wholesale_catalog: list[Barrel]):
     """ """
     log("Wholesale Catalog", wholesale_catalog)
+    return []
 
     with db.engine.begin() as connection:
 
